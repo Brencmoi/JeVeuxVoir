@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackjack - Casino Terminal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        /* --- VARIABLES GLOBALES --- */
+        :root {
+            --color-primary: #00FF00; /* Vert Fluo */
+            --color-secondary: #FFD700; /* Jaune/Or (pour la bankroll) */
+            --color-dark: #0a0a0a;
+            --color-bg: #000;
+            --color-dealer: #FF0000; /* Rouge Vif pour le Dealer */
+        }
+
+        /* --- STYLE GENERAL RETRO --- */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--color-bg);
+            color: var(--color-primary);
+            overflow: hidden; /* Empêche le défilement */
+        }
+        
+        .game-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .game-title {
+            color: var(--color-primary);
+            text-shadow: 0 0 8px var(--color-primary);
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+        }
+
+        /* --- BOUTON RETOUR --- */
+        .back-button {
+            position: fixed;
+            top: 15px; left: 15px; z-index: 1000; border-radius: 50%; width: 45px; height: 45px; 
+            display: flex; align-items: center; justify-content: center;
+            background-color: rgba(30, 30, 30, 0.7); 
+            border: 2px solid rgba(0, 255, 0, 0.3); 
+            color: rgba(0, 255, 0, 0.8); 
+            transition: all 0.3s ease; text-decoration: none; font-size: 1.5rem; 
+        }
+        .back-button:hover {
+            background-color: rgba(50, 50, 50, 0.9); 
+            color: var(--color-primary); 
+            border-color: var(--color-primary); 
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.7); 
+            transform: scale(1.05);
+        }
+
+        /* --- INTERFACE CASINO/HUD --- */
+        #bankroll-display, #bet-total-display { /* NOUVEAU ID AJOUTÉ ICI */
+            border: 2px solid var(--color-secondary);
+            padding: 0.5rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 0 5px var(--color-secondary);
+            font-size: 0.7rem;
+            text-shadow: 0 0 3px var(--color-secondary);
+        }
+
+        #bankroll-value {
+            color: var(--color-primary);
+            font-size: 1.2rem;
+            text-shadow: 0 0 5px var(--color-primary);
+        }
+        
+        #bet-total-value { /* STYLE SPÉCIFIQUE POUR LA MISE TOTALE */
+             color: var(--color-dealer);
+             font-size: 1.2rem;
+             text-shadow: 0 0 5px var(--color-dealer);
+        }
+        
+        /* --- CARTES ET PLATEAU DE JEU --- */
+        .player-area, .dealer-area {
+            position: relative; 
+            margin: 1.5rem 0;
+            padding: 1rem;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            background-color: #0d0d0d;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .hand {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            min-height: 130px; 
+            margin-top: 10px;
+        }
+
+        .card {
+            width: 80px;
+            height: 120px;
+            border: 2px solid var(--color-primary);
+            border-radius: 0;
+            background-color: var(--color-dark);
+            color: var(--color-primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            transition: transform 0.2s ease-out;
+        }
+
+        .card.hidden {
+            background-color: var(--color-dealer);
+            border-color: var(--color-dealer);
+            color: #fff;
+            box-shadow: 0 0 8px var(--color-dealer);
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+        
+        /* --- JETONS SUR LA TABLE --- */
+        #player-bet-chips {
+            position: absolute;
+            bottom: 5px; 
+            right: 15px; 
+            display: flex;
+            flex-direction: column-reverse; 
+            align-items: center;
+            z-index: 50;
+            min-height: 50px;
+        }
+        
+        .table-chip {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: bold;
+            border: 2px solid;
+            box-shadow: 0 0 5px;
+            margin-top: -30px; 
+            transition: all 0.2s ease-out;
+        }
+        .table-chip:first-child {
+            margin-top: 0; 
+        }
+        
+        /* Styles des jetons (identiques aux contrôles de mise) */
+        .chip-10 { background-color: #2a2a2a; border-color: #33F; color: #33F; box-shadow: 0 0 5px #33F; }
+        .chip-25 { background-color: #2a2a2a; border-color: #F0F; color: #F0F; box-shadow: 0 0 5px #F0F; }
+        .chip-50 { background-color: #2a2a2a; border-color: #FF0; color: #FF0; box-shadow: 0 0 5px #FF0; }
+
+
+        /* --- COMMANDES --- */
+        .controls, .bet-options {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        .game-btn {
+            font-family: 'Press Start 2P', cursive;
+            border-radius: 0; 
+            border: 2px solid;
+            transition: all 0.1s ease-in-out;
+        }
+        .game-btn:active {
+            transform: translateY(2px);
+            box-shadow: none !important;
+        }
+        
+        .bet-chip-control { 
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 3px solid;
+            box-shadow: 0 0 8px;
+            transition: transform 0.1s;
+        }
+        .bet-chip-control:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Messages de statut */
+        #game-message {
+            font-size: 1.1rem;
+            min-height: 2em;
+            margin-top: 1rem;
+            color: #fff;
+            text-shadow: 0 0 8px #fff;
+        }
+
+    </style>
+</head>
+<body data-bs-theme="dark">
+
+    <a href="jeux.html" class="back-button" title="Retour au menu des jeux">
+        <i class="bi bi-controller"></i>
+    </a>
+    
+    <div id="game-blackjack-container" class="game-section">
+        <div class="text-center">
+            <h1 class="game-title">♦️ BLACKJACK TERMINAL CASINO ♠️</h1>
+            
+            <div id="hud" class="d-flex justify-content-center flex-wrap mb-4">
+                <div id="bankroll-display" class="mx-3">
+                    BANKROLL: <span id="bankroll-value">1000 $</span>
+                </div>
+                
+                <div id="bet-total-display" class="mx-3">
+                    MISE TOTALE: <span id="bet-total-value">0 $</span>
+                </div>
+            </div>
+
+            <div class="dealer-area">
+                <h3 class="mb-2">DEALER <span id="dealer-score" class="score"></span></h3>
+                <div id="dealer-hand" class="hand">
+                    </div>
+            </div>
+
+            <p id="game-message">Placez votre mise pour commencer.</p>
+
+            <div class="player-area">
+                <h3 class="mb-2">JOUEUR <span id="player-score" class="score"></span></h3>
+                <div id="player-hand" class="hand">
+                    </div>
+                <div id="player-bet-chips">
+                    </div>
+            </div>
+
+            <div id="betting-controls" class="bet-options my-4">
+                <p>Jeton:</p>
+                <div class="bet-chip-control chip-10" data-amount="10">$10</div>
+                <div class="bet-chip-control chip-25" data-amount="25">$25</div>
+                <div class="bet-chip-control chip-50" data-amount="50">$50</div>
+                <button id="btn-deal" class="btn btn-success game-btn ms-4" disabled>DEAL</button>
+                <button id="btn-clear-bet" class="btn btn-outline-danger game-btn" disabled>ANNULER</button>
+            </div>
+
+            <div id="game-controls" class="controls my-4" style="display: none;">
+                <button id="btn-hit" class="btn btn-outline-success game-btn">TIRER</button>
+                <button id="btn-stand" class="btn btn-outline-warning game-btn">RESTER</button>
+                <button id="btn-double" class="btn btn-outline-info game-btn">DOUBLER (2x)</button>
+                <button id="btn-insurance" class="btn btn-outline-primary game-btn" style="display: none;">ASSURANCE</button>
+            </div>
+            
+            <button id="btn-new-round" class="btn btn-light game-btn my-4" style="display: none;">NOUVELLE MAIN</button>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ÉLÉMENTS DU DOM ---
+            const bankrollValueEl = document.getElementById('bankroll-value');
+            const betTotalValueEl = document.getElementById('bet-total-value'); // NOUVEL ÉLÉMENT
+            const dealerHandEl = document.getElementById('dealer-hand');
+            const playerHandEl = document.getElementById('player-hand');
+            const dealerScoreEl = document.getElementById('dealer-score');
+            const playerScoreEl = document.getElementById('player-score');
+            const gameMessageEl = document.getElementById('game-message');
+            const playerBetChipsEl = document.getElementById('player-bet-chips'); 
+
+            const bettingControlsEl = document.getElementById('betting-controls');
+            const gameControlsEl = document.getElementById('game-controls');
+            const btnDeal = document.getElementById('btn-deal');
+            const btnClearBet = document.getElementById('btn-clear-bet');
+            const btnHit = document.getElementById('btn-hit');
+            const btnStand = document.getElementById('btn-stand');
+            const btnDouble = document.getElementById('btn-double');
+            const btnInsurance = document.getElementById('btn-insurance');
+            const btnNewRound = document.getElementById('btn-new-round');
+            
+            // --- ÉTAT DU JEU ---
+            let bankroll = 1000;
+            let currentBet = 0; // Mise totale (déduite de currentBetChips)
+            let currentBetChips = []; // Array pour suivre les jetons individuels [10, 25, 50, ...]
+            let deck = [];
+            let playerHand = [];
+            let dealerHand = [];
+            let gameInProgress = false;
+            let canDouble = true;
+            let insuranceAvailable = false;
+
+            const BET_AMOUNTS = [10, 25, 50];
+            const CHIP_CLASSES = { 10: 'chip-10', 25: 'chip-25', 50: 'chip-50' };
+
+            // --- FONCTIONS UTILITAIRES ---
+
+            // Met à jour l'affichage de la bankroll, de la mise totale et des jetons sur table
+            function updateHUD() {
+                // 1. Calcul du total de la mise
+                currentBet = currentBetChips.reduce((sum, amount) => sum + amount, 0);
+                
+                // 2. Affichage des valeurs numériques
+                bankrollValueEl.textContent = `${bankroll} $`;
+                betTotalValueEl.textContent = `${currentBet} $`; // NOUVEAU
+
+                // 3. Affichage des jetons sur la table
+                playerBetChipsEl.innerHTML = '';
+                currentBetChips.forEach(amount => {
+                    const chip = document.createElement('div');
+                    chip.classList.add('table-chip', CHIP_CLASSES[amount]);
+                    chip.textContent = `$${amount}`;
+                    playerBetChipsEl.appendChild(chip);
+                });
+
+                // 4. Gestion des contrôles
+                document.querySelectorAll('.bet-chip-control').forEach(chip => {
+                    const amount = parseInt(chip.dataset.amount);
+                    chip.disabled = (bankroll < amount);
+                    chip.style.opacity = (bankroll < amount) ? 0.5 : 1;
+                });
+                
+                btnDeal.disabled = (currentBet === 0 || gameInProgress);
+                btnClearBet.disabled = (currentBet === 0 || gameInProgress);
+
+                if (bankroll <= 0 && currentBet === 0) {
+                     gameMessageEl.textContent = "FIN DE JEU. BANKROLL ÉPUISÉE. RECHARGEZ (F5)";
+                     bettingControlsEl.style.display = 'none';
+                     gameControlsEl.style.display = 'none';
+                }
+            }
+            
+            // Logique pour placer un seul jeton
+            function placeBet(amount) {
+                if (bankroll >= amount && !gameInProgress) {
+                    currentBetChips.push(amount);
+                    bankroll -= amount;
+                    updateHUD();
+                }
+            }
+
+            // Logique pour annuler TOUTE la mise
+            function clearBet() {
+                if (!gameInProgress) {
+                    bankroll += currentBet;
+                    currentBetChips = [];
+                    updateHUD();
+                    gameMessageEl.textContent = "Mise annulée. Placez une nouvelle mise.";
+                }
+            }
+
+            // Crée et mélange un nouveau sabot de 6 jeux
+            function createAndShuffleDeck() {
+                const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+                const suits = ['♠', '♥', '♦', '♣'];
+                deck = [];
+                for (let k = 0; k < 6; k++) { 
+                    for (const rank of ranks) {
+                        for (const suit of suits) {
+                            deck.push({ rank, suit });
+                        }
+                    }
+                }
+                for (let i = deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [deck[i], deck[j]] = [deck[j], deck[i]];
+                }
+            }
+
+            // Calcule la valeur de la main (gestion de l'As)
+            function calculateScore(hand) {
+                let score = 0;
+                let numAces = 0;
+
+                for (const card of hand) {
+                    if (card.rank === 'A') {
+                        numAces++;
+                        score += 11;
+                    } else if (['K', 'Q', 'J'].includes(card.rank)) {
+                        score += 10;
+                    } else {
+                        score += parseInt(card.rank);
+                    }
+                }
+
+                while (score > 21 && numAces > 0) {
+                    score -= 10; 
+                    numAces--;
+                }
+                return score;
+            }
+
+            // Affiche la main sur l'interface
+            function renderHand(hand, element, isDealer = false, hideFirstCard = false) {
+                element.innerHTML = '';
+                
+                hand.forEach((card, index) => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.classList.add('card');
+                    
+                    const isHidden = isDealer && hideFirstCard && index === 0;
+
+                    if (isHidden) {
+                        cardDiv.classList.add('hidden');
+                        cardDiv.textContent = "CACHÉE";
+                    } else {
+                        cardDiv.innerHTML = `
+                            <span>${card.rank}</span>
+                            <span class="card-value">${card.suit}</span>
+                        `;
+                        if (card.suit === '♥' || card.suit === '♦') {
+                            cardDiv.style.color = '#F00';
+                            cardDiv.style.borderColor = '#F00';
+                            cardDiv.style.boxShadow = '0 0 5px rgba(255, 0, 0, 0.5)';
+                        }
+                    }
+                    element.appendChild(cardDiv);
+                });
+
+                const currentScore = calculateScore(hand);
+                
+                if (isDealer) {
+                    dealerScoreEl.textContent = hideFirstCard ? `(${calculateScore([hand[1]])})` : `(${currentScore})`;
+                } else {
+                    playerScoreEl.textContent = `(${currentScore})`;
+                }
+            }
+            
+            // Distribue une carte
+            function dealCard(hand, element, isDealer = false, hide = false) {
+                if (deck.length < 10) { // Remélange préventif
+                    createAndShuffleDeck(); 
+                    gameMessageEl.textContent = "Sabot remélangé. Reprise de la partie.";
+                }
+                const card = deck.pop();
+                hand.push(card);
+                renderHand(hand, element, isDealer, hide);
+            }
+
+            // --- LOGIQUE DE JEU PRINCIPALE ---
+
+            // Démarre la partie
+            function startRound() {
+                if (currentBet === 0) return;
+
+                gameInProgress = true;
+                playerHand = [];
+                dealerHand = [];
+                canDouble = true;
+                insuranceAvailable = false;
+                
+                bettingControlsEl.style.display = 'none';
+                gameControlsEl.style.display = 'flex';
+                btnNewRound.style.display = 'none';
+                btnInsurance.style.display = 'none';
+                
+                gameMessageEl.style.color = '#fff';
+                gameMessageEl.style.textShadow = '0 0 8px #fff';
+                dealerScoreEl.textContent = '';
+                playerScoreEl.textContent = '';
+
+                // Distribution
+                dealCard(playerHand, playerHandEl);
+                dealCard(dealerHand, dealerHandEl, true, false); 
+                dealCard(playerHand, playerHandEl);
+                dealCard(dealerHand, dealerHandEl, true, true); 
+
+                const playerScore = calculateScore(playerHand);
+                
+                if (playerScore === 21) {
+                    gameMessageEl.textContent = "Blackjack du Joueur ! Le croupier joue.";
+                    setTimeout(dealerPlay, 1000); 
+                    return;
+                }
+                
+                if (dealerHand[1].rank === 'A' && currentBetChips.length > 0) {
+                    insuranceAvailable = true;
+                    btnInsurance.style.display = 'inline-block';
+                    gameMessageEl.textContent = "AS du Croupier. Assurance ?";
+                } else {
+                    gameMessageEl.textContent = "Tirez ou Restez.";
+                }
+                
+                updateControlStates();
+            }
+
+            // Mise à jour des boutons HIT, STAND, DOUBLE
+            function updateControlStates() {
+                const playerScore = calculateScore(playerHand);
+                btnHit.disabled = playerScore >= 21;
+                btnStand.disabled = playerScore >= 21;
+                
+                // Doubler n'est possible qu'au premier tour (2 cartes) et si la bankroll le permet
+                btnDouble.disabled = !canDouble || playerHand.length > 2 || bankroll < currentBet;
+                
+                if (playerScore >= 21) {
+                    btnHit.disabled = true;
+                    btnStand.disabled = false;
+                    btnDouble.disabled = true;
+                    btnInsurance.style.display = 'none';
+                }
+            }
+
+            // Action TIRER (Hit)
+            function handleHit() {
+                canDouble = false;
+                btnInsurance.style.display = 'none';
+
+                dealCard(playerHand, playerHandEl);
+                const score = calculateScore(playerHand);
+
+                if (score > 21) {
+                    gameMessageEl.textContent = "BUST (Dépassement de 21) ! Vous perdez.";
+                    endRound('loss');
+                } else {
+                    gameMessageEl.textContent = "Carte tirée. Tirez encore ou Restez.";
+                    updateControlStates();
+                }
+            }
+
+            // Action RESTER (Stand)
+            function handleStand() {
+                gameMessageEl.textContent = "Vous restez. Au tour du Croupier.";
+                gameControlsEl.style.display = 'none';
+                setTimeout(dealerPlay, 500);
+            }
+
+            // Action DOUBLER (Double Down)
+            function handleDouble() {
+                if (!canDouble || bankroll < currentBet) return;
+
+                // Mise doublée (gestion des jetons visuels)
+                const doubleBetChips = [...currentBetChips];
+                doubleBetChips.forEach(amount => {
+                     placeBet(amount); 
+                });
+
+                canDouble = false;
+                btnDouble.disabled = true;
+                btnInsurance.style.display = 'none';
+
+                dealCard(playerHand, playerHandEl);
+                const score = calculateScore(playerHand);
+
+                if (score > 21) {
+                    gameMessageEl.textContent = "BUST (Dépassement de 21) après avoir doublé ! Vous perdez.";
+                    endRound('loss');
+                } else {
+                    gameMessageEl.textContent = `Doublé. Total de ${score}. Au tour du Croupier.`;
+                    setTimeout(dealerPlay, 1000);
+                }
+            }
+            
+            // Action ASSURANCE (Insurance)
+            function handleInsurance() {
+                if (!insuranceAvailable || bankroll < currentBet / 2) return;
+                
+                const insuranceAmount = currentBet / 2;
+                bankroll -= insuranceAmount; // Déduit l'assurance de la bankroll
+                updateHUD(); 
+                
+                insuranceAvailable = false;
+                btnInsurance.style.display = 'none';
+                gameMessageEl.textContent = `Assurance prise (${insuranceAmount} $). Croupier vérifie sa carte.`;
+                
+                renderHand(dealerHand, dealerHandEl, true, false);
+
+                if (calculateScore(dealerHand) === 21) {
+                    // Croupier a Blackjack. Assurance payée 2:1.
+                    bankroll += insuranceAmount * 3; 
+                    gameMessageEl.textContent = "Blackjack du Croupier ! Assurance payée (2:1). Main Perdue.";
+                    endRound('push', insuranceAmount); 
+                } else {
+                    gameMessageEl.textContent = "Pas de Blackjack. L'assurance est perdue. Continuez à jouer.";
+                    updateHUD(); 
+                }
+            }
+
+            // Jeu du Croupier
+            function dealerPlay() {
+                renderHand(dealerHand, dealerHandEl, true, false);
+                gameMessageEl.textContent = "Croupier révèle sa carte...";
+
+                let dealerScore = calculateScore(dealerHand);
+                const playerScore = calculateScore(playerHand);
+
+                // Si le joueur avait un Blackjack
+                if (playerScore === 21 && playerHand.length === 2) {
+                     if (dealerScore === 21) {
+                         endRound('push');
+                     } else {
+                         endRound('blackjack');
+                     }
+                     return;
+                }
+
+                const playInterval = setInterval(() => {
+                    if (dealerScore < 17) {
+                        gameMessageEl.textContent = `Croupier tire (${dealerScore})...`;
+                        dealCard(dealerHand, dealerHandEl, true, false);
+                        dealerScore = calculateScore(dealerHand);
+                    } else {
+                        clearInterval(playInterval);
+                        if (dealerScore > 21) {
+                            gameMessageEl.textContent = "BUST du Croupier ! Vous gagnez.";
+                            endRound('win');
+                        } else {
+                            if (playerScore > dealerScore) {
+                                gameMessageEl.textContent = `Vous gagnez ! (${playerScore} contre ${dealerScore}).`;
+                                endRound('win');
+                            } else if (playerScore < dealerScore) {
+                                gameMessageEl.textContent = `Vous perdez ! (${playerScore} contre ${dealerScore}).`;
+                                endRound('loss');
+                            } else {
+                                gameMessageEl.textContent = "Poussé (Push)! (Égalité).";
+                                endRound('push');
+                            }
+                        }
+                    }
+                }, 1000);
+            }
+
+            // Fin de la main et paiement
+            function endRound(result) {
+                gameInProgress = false;
+                gameControlsEl.style.display = 'none';
+                btnNewRound.style.display = 'inline-block';
+                
+                const finalBet = currentBetChips.reduce((sum, amount) => sum + amount, 0);
+
+                // Paiements
+                switch (result) {
+                    case 'win':
+                        bankroll += finalBet * 2; 
+                        gameMessageEl.style.color = 'var(--color-primary)';
+                        gameMessageEl.style.textShadow = '0 0 10px var(--color-primary)';
+                        break;
+                    case 'blackjack':
+                        bankroll += finalBet * 2.5; 
+                        gameMessageEl.style.color = 'var(--color-primary)';
+                        gameMessageEl.style.textShadow = '0 0 10px var(--color-primary)';
+                        break;
+                    case 'loss':
+                        gameMessageEl.style.color = 'var(--color-dealer)';
+                        gameMessageEl.style.textShadow = '0 0 10px var(--color-dealer)';
+                        break;
+                    case 'push':
+                        bankroll += finalBet; 
+                        gameMessageEl.style.color = '#fff';
+                        gameMessageEl.style.textShadow = '0 0 10px #fff';
+                        break;
+                }
+                
+                // Réinitialisation pour le prochain tour
+                currentBetChips = [];
+                currentBet = 0; 
+                updateHUD();
+            }
+
+            // --- GESTION DES ÉVÉNEMENTS ---
+
+            // Clic sur un jeton de mise (contrôle)
+            bettingControlsEl.querySelectorAll('.bet-chip-control').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const amount = parseInt(chip.dataset.amount);
+                    placeBet(amount);
+                });
+            });
+
+            // Annuler la mise
+            btnClearBet.addEventListener('click', clearBet);
+
+            // Bouton DEAL
+            btnDeal.addEventListener('click', startRound);
+
+            // Boutons de jeu
+            btnHit.addEventListener('click', handleHit);
+            btnStand.addEventListener('click', handleStand);
+            btnDouble.addEventListener('click', handleDouble);
+            btnInsurance.addEventListener('click', handleInsurance);
+            
+            // Nouvelle partie
+            btnNewRound.addEventListener('click', () => {
+                btnNewRound.style.display = 'none';
+                bettingControlsEl.style.display = 'flex';
+                gameMessageEl.textContent = "Placez votre mise pour commencer.";
+                dealerHandEl.innerHTML = '';
+                playerHandEl.innerHTML = '';
+                dealerScoreEl.textContent = '';
+                playerScoreEl.textContent = '';
+            });
+
+            // --- INITIALISATION ---
+            createAndShuffleDeck();
+            updateHUD();
+        });
+    </script>
+
+</body>
+</html>

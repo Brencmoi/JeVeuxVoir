@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu du Memory (Paires) - Rétro Arcade</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        /* --- VARIABLES GLOBALES --- */
+        :root {
+            --color-primary: #00FF00; /* Vert Fluo */
+            --color-secondary: #FFD700; /* Jaune/Or pour le temps */
+            --color-dark: #0a0a0a;
+            --color-bg: #000;
+            --card-back: #008f00; /* Vert foncé pour le dos des cartes */
+        }
+
+        /* --- STYLE GENERAL RETRO --- */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--color-bg);
+            color: var(--color-primary);
+            overflow-x: hidden; 
+        }
+        
+        .game-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .game-title {
+            color: var(--color-primary);
+            text-shadow: 0 0 8px var(--color-primary);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        /* --- BOUTON RETOUR --- */
+        .back-button {
+            position: fixed;
+            top: 15px; left: 15px; z-index: 1000; border-radius: 50%; width: 45px; height: 45px; 
+            display: flex; align-items: center; justify-content: center;
+            background-color: rgba(30, 30, 30, 0.7); 
+            border: 2px solid rgba(0, 255, 0, 0.3); 
+            color: rgba(0, 255, 0, 0.8); 
+            transition: all 0.3s ease; text-decoration: none; font-size: 1.5rem; 
+        }
+        .back-button:hover {
+            background-color: rgba(50, 50, 50, 0.9); 
+            color: var(--color-primary); 
+            border-color: var(--color-primary); 
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.7); 
+            transform: scale(1.05);
+        }
+
+        /* --- HUD et SCORE --- */
+        #hud-memory {
+            border: 2px solid var(--color-primary);
+            padding: 0.5rem 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0 5px var(--color-primary);
+            font-size: 0.7rem;
+            text-shadow: 0 0 3px var(--color-primary);
+        }
+
+        #timer-value {
+            color: var(--color-secondary);
+            font-size: 1.2rem;
+            text-shadow: 0 0 5px var(--color-secondary);
+        }
+        
+        #matches-value {
+             color: #fff;
+             font-size: 1.2rem;
+             text-shadow: 0 0 5px #fff;
+        }
+
+        /* --- GRILLE DE JEU --- */
+        #board-memory {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            background-color: var(--color-dark);
+            border: 4px solid var(--color-primary);
+            padding: 10px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+            max-width: 450px;
+            width: 90vw;
+        }
+
+        /* --- CARTE (Memory Card) --- */
+        .card-container {
+            perspective: 1000px;
+            height: 100px; /* Taille fixe */
+            width: 100%;
+            max-width: 100px;
+            margin: 0 auto;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            border: 2px solid var(--color-primary);
+            border-radius: 0;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+
+        .card-container.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem; /* Taille de l'icône */
+        }
+
+        .card-back {
+            background-color: var(--card-back);
+            color: var(--color-primary);
+            transform: rotateY(0deg);
+            cursor: pointer;
+        }
+
+        .card-front {
+            background-color: #111; /* Couleur légèrement plus claire */
+            color: #fff;
+            transform: rotateY(180deg);
+            /* Ajoute une petite lueur pour le symbole */
+            text-shadow: 0 0 5px var(--color-secondary);
+        }
+
+        /* Style pour les paires trouvées */
+        .card-container.matched .card-inner {
+            opacity: 0.3;
+            pointer-events: none;
+            transition: opacity 0.5s ease-out;
+            border-color: transparent !important;
+        }
+        
+        /* Message d'état */
+        #game-message {
+            font-size: 1rem;
+            min-height: 2em;
+            margin-top: 1rem;
+            color: #fff;
+            text-shadow: 0 0 8px #fff;
+        }
+
+        /* Boutons */
+        .game-btn {
+            font-family: 'Press Start 2P', cursive;
+            border-radius: 0; 
+            border: 2px solid;
+            transition: all 0.1s ease-in-out;
+        }
+        .game-btn:active {
+            transform: translateY(2px);
+            box-shadow: none !important;
+        }
+    </style>
+</head>
+<body data-bs-theme="dark">
+
+    <a href="jeux.html" class="back-button" title="Retour au menu des jeux">
+        <i class="bi bi-controller"></i>
+    </a>
+    
+    <div id="game-memory-container" class="game-section">
+        <div class="text-center">
+            <h1 class="game-title">🧠 MEMORY TERMINAL MODE 💾</h1>
+            
+            <div id="hud-memory" class="d-flex justify-content-center flex-wrap mb-4">
+                <div class="mx-3">
+                    PAIRES TROUVÉES: <span id="matches-value">0 / 8</span>
+                </div>
+                <div class="mx-3">
+                    TEMPS: <span id="timer-value">00:00</span>
+                </div>
+            </div>
+
+            <div id="board-memory">
+                </div>
+
+            <p id="game-message">Cliquez sur RECOMMENCER pour lancer.</p>
+
+            <div class="controls mt-4">
+                <button id="btn-restart" class="btn btn-outline-info game-btn">RECOMMENCER</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ÉLÉMENTS DU DOM ---
+            const boardEl = document.getElementById('board-memory');
+            const matchesValueEl = document.getElementById('matches-value');
+            const timerValueEl = document.getElementById('timer-value');
+            const gameMessageEl = document.getElementById('game-message');
+            const btnRestart = document.getElementById('btn-restart');
+
+            // --- PARAMÈTRES ET ÉTAT DU JEU ---
+            const ICONS = [
+                'bi-cpu-fill', 'bi-bug-fill', 'bi-code-slash', 'bi-terminal-fill', 
+                'bi-joystick', 'bi-floppy-fill', 'bi-database-fill', 'bi-robot'
+            ];
+            const NUM_PAIRS = ICONS.length; // 8 paires (16 cartes)
+
+            let gameBoard = []; // Tableau logique des cartes
+            let flippedCards = []; // Cartes retournées (max 2)
+            let matchedPairs = 0;
+            let canFlip = true;
+            let startTime = null;
+            let timerInterval = null;
+
+            // --- FONCTIONS UTILITAIRES ---
+
+            // Mélange l'array (Algorithme de Fisher-Yates)
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+            
+            // Formatage du temps (MM:SS)
+            function formatTime(totalSeconds) {
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+
+            // Gère le chronomètre
+            function startTimer() {
+                if (timerInterval) clearInterval(timerInterval);
+                startTime = Date.now();
+                timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    timerValueEl.textContent = formatTime(elapsed);
+                }, 1000);
+            }
+
+            function stopTimer() {
+                if (timerInterval) clearInterval(timerInterval);
+            }
+
+            // --- LOGIQUE DE JEU ---
+
+            function initializeGame() {
+                stopTimer();
+                boardEl.innerHTML = '';
+                flippedCards = [];
+                matchedPairs = 0;
+                canFlip = true;
+                timerValueEl.textContent = "00:00";
+                matchesValueEl.textContent = `${matchedPairs} / ${NUM_PAIRS}`;
+                gameMessageEl.textContent = "Cliquez sur la première carte.";
+
+                // 1. Préparation du tableau des icônes (doublons)
+                let cardIcons = [...ICONS, ...ICONS];
+                cardIcons = shuffle(cardIcons);
+
+                // 2. Création des cartes et du DOM
+                gameBoard = cardIcons.map((iconClass, index) => {
+                    const cardData = {
+                        id: index,
+                        icon: iconClass,
+                        isFlipped: false,
+                        isMatched: false
+                    };
+
+                    const cardContainer = document.createElement('div');
+                    cardContainer.classList.add('card-container');
+                    cardContainer.dataset.id = index;
+                    
+                    const cardInner = document.createElement('div');
+                    cardInner.classList.add('card-inner');
+                    
+                    // Face arrière (Dos de carte)
+                    const cardBack = document.createElement('div');
+                    cardBack.classList.add('card-face', 'card-back');
+                    cardBack.innerHTML = `<i class="bi bi-question-diamond"></i>`;
+
+                    // Face avant (Symbole)
+                    const cardFront = document.createElement('div');
+                    cardFront.classList.add('card-face', 'card-front');
+                    cardFront.innerHTML = `<i class="bi ${iconClass}"></i>`;
+
+                    cardInner.appendChild(cardBack);
+                    cardInner.appendChild(cardFront);
+                    cardContainer.appendChild(cardInner);
+                    boardEl.appendChild(cardContainer);
+                    
+                    // Ajout de l'écouteur
+                    cardContainer.addEventListener('click', handleCardClick);
+
+                    return cardData;
+                });
+                
+                // Démarre le timer après l'initialisation
+                startTimer();
+            }
+
+            function handleCardClick(event) {
+                if (!canFlip || flippedCards.length >= 2) return;
+
+                // Trouver l'élément et les données de la carte
+                const cardContainer = event.currentTarget;
+                const cardId = parseInt(cardContainer.dataset.id);
+                const cardData = gameBoard.find(card => card.id === cardId);
+
+                // Ignore si la carte est déjà retournée ou trouvée
+                if (cardData.isFlipped || cardData.isMatched) return;
+
+                // 1. Retourner la carte
+                cardData.isFlipped = true;
+                cardContainer.classList.add('flipped');
+                flippedCards.push(cardData);
+                
+                // 2. Vérification après avoir retourné la deuxième carte
+                if (flippedCards.length === 2) {
+                    canFlip = false; // Bloque le jeu
+                    checkForMatch();
+                }
+            }
+
+            function checkForMatch() {
+                const [card1, card2] = flippedCards;
+                
+                if (card1.icon === card2.icon) {
+                    // PAIRE TROUVÉE!
+                    matchedPairs++;
+                    matchesValueEl.textContent = `${matchedPairs} / ${NUM_PAIRS}`;
+                    gameMessageEl.textContent = "PAIRE TROUVÉE! Continuez.";
+
+                    // Marquer les cartes comme trouvées
+                    card1.isMatched = true;
+                    card2.isMatched = true;
+                    
+                    document.querySelector(`[data-id="${card1.id}"]`).classList.add('matched');
+                    document.querySelector(`[data-id="${card2.id}"]`).classList.add('matched');
+                    
+                    // Réinitialiser après une courte pause pour l'effet
+                    setTimeout(() => {
+                        flippedCards = [];
+                        canFlip = true;
+                        
+                        // Vérification de victoire
+                        if (matchedPairs === NUM_PAIRS) {
+                            endGame();
+                        }
+                    }, 500);
+
+                } else {
+                    // PAS DE PAIRE
+                    gameMessageEl.textContent = "Pas de chance. Réessayez.";
+                    
+                    // Retourner les cartes après un délai
+                    setTimeout(() => {
+                        // Cacher visuellement les cartes
+                        document.querySelector(`[data-id="${card1.id}"]`).classList.remove('flipped');
+                        document.querySelector(`[data-id="${card2.id}"]`).classList.remove('flipped');
+                        
+                        // Cacher logiquement les cartes
+                        card1.isFlipped = false;
+                        card2.isFlipped = false;
+                        
+                        flippedCards = [];
+                        canFlip = true;
+                        gameMessageEl.textContent = "Tirez deux nouvelles cartes.";
+                    }, 1200); // 1.2 secondes d'affichage
+                }
+            }
+            
+            function endGame() {
+                stopTimer();
+                const finalTime = timerValueEl.textContent;
+                gameMessageEl.textContent = `VICTOIRE! Temps final: ${finalTime}`;
+                gameMessageEl.style.color = 'var(--color-secondary)';
+                gameMessageEl.style.textShadow = '0 0 10px var(--color-secondary)';
+                canFlip = false;
+            }
+
+            // --- GESTION DES ÉVÉNEMENTS ---
+            btnRestart.addEventListener('click', initializeGame);
+
+            // --- INITIALISATION ---
+            // Dessine la grille initiale (état d'attente)
+            boardEl.style.gridTemplateColumns = `repeat(4, 1fr)`;
+            for (let i = 0; i < 16; i++) {
+                const placeholder = document.createElement('div');
+                placeholder.classList.add('card-container');
+                placeholder.style.opacity = 0.5;
+                placeholder.innerHTML = `<div class="card-inner"><div class="card-face card-back"><i class="bi bi-box"></i></div></div>`;
+                boardEl.appendChild(placeholder);
+            }
+            gameMessageEl.textContent = "Prêt. Cliquez sur RECOMMENCER.";
+        });
+    </script>
+
+</body>
+</html>

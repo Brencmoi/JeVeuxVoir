@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joker Terminal Advanced (Balatro Clone)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        /* --- VARIABLES GLOBALES --- */
+        :root {
+            --color-primary: #00FF00; /* Vert Fluo (Principal) */
+            --color-secondary: #FFD700; /* Jaune/Or (Jokers & Highlight) */
+            --color-target: #FF5555; /* Rouge Cible */
+            --color-chip-base: #fff; /* Cartes */
+            --color-dark: #0a0a0a;
+            --color-bg: #000;
+            --color-table-felt: #004d00; /* Tapis de jeu Vert foncé */
+            --border-glow: rgba(0, 255, 0, 0.4);
+            --border-width: 3px;
+        }
+
+        /* --- STYLE GENERAL RETRO --- */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--color-bg);
+            color: var(--color-primary);
+            overflow: hidden; 
+        }
+
+        .game-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .game-title {
+            color: var(--color-primary);
+            text-shadow: 0 0 8px var(--color-primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+            width: 100%;
+        }
+
+        /* --- BOUTON RETOUR (Ancré) --- */
+        .back-button {
+            position: fixed;
+            top: 15px; left: 15px; z-index: 1000; border-radius: 50%; width: 45px; height: 45px;
+            display: flex; align-items: center; justify-content: center;
+            background-color: rgba(30, 30, 30, 0.7);
+            border: 2px solid rgba(0, 255, 0, 0.3);
+            color: rgba(0, 255, 0, 0.8);
+            transition: all 0.3s ease; text-decoration: none; font-size: 1.5rem;
+        }
+        .back-button:hover {
+            background-color: rgba(50, 50, 50, 0.9);
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+            transform: scale(1.05);
+        }
+        
+        /* --- LAYOUT PRINCIPAL (GRID) --- */
+        #main-container {
+            display: grid;
+            grid-template-columns: 200px 1fr 200px; 
+            grid-template-rows: 1fr auto;
+            gap: 10px;
+            width: 98vw;
+            height: 90vh;
+            margin: 0 auto;
+        }
+
+        /* --- Tapis de Jeu Central (Conteneur des cartes) --- */
+        #felt-area {
+            grid-area: 1 / 2 / 2 / 3;
+            background-color: var(--color-table-felt);
+            border: var(--border-width) solid var(--color-primary);
+            box-shadow: 0 0 20px var(--border-glow) inset, 0 0 10px var(--color-primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+        }
+
+        /* Panneaux latéraux */
+        #joker-column, #stats-column {
+            padding: 10px;
+            background-color: var(--color-dark);
+            border: var(--border-width) solid var(--color-primary);
+            box-shadow: 0 0 10px var(--border-glow);
+            overflow-y: auto;
+            text-align: left;
+        }
+        #joker-column {
+            grid-area: 1 / 1 / 3 / 2;
+        }
+        #stats-column {
+            grid-area: 1 / 3 / 3 / 4;
+            text-align: right;
+        }
+
+        /* --- HUD (Zone Statistique Droite) --- */
+        .stat-box {
+            border: 2px solid var(--color-secondary);
+            padding: 0.5rem 0.8rem;
+            margin-bottom: 15px;
+            box-shadow: 0 0 5px var(--color-secondary);
+            font-size: 0.6rem;
+            text-shadow: 0 0 3px var(--color-secondary);
+            display: inline-block;
+        }
+
+        #score-target-value, #current-score-value {
+             font-size: 1.5rem;
+             display: block;
+        }
+        #score-target-value { color: var(--color-target); }
+        #current-score-value { color: var(--color-primary); }
+        
+        /* Animation Gain de Score */
+        #current-score-value.gain-pulse {
+            color: #FFFF00;
+            transform: scale(1.1);
+            animation: pulse 0.3s ease-in-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1.0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1.0); }
+        }
+
+        /* --- ZONE JOKERS --- */
+        .joker-card {
+            width: 100%;
+            height: 120px;
+            border: 3px solid var(--color-secondary);
+            background-color: #1a1a1a;
+            margin-bottom: 10px;
+            padding: 5px;
+            font-size: 0.6rem;
+            line-height: 1.1;
+            text-align: left;
+            box-shadow: 0 0 5px var(--color-secondary);
+        }
+        .joker-card h4 { font-size: 0.7rem; margin-bottom: 5px; color: var(--color-chip-base); }
+        .joker-card .stats { color: var(--color-primary); font-size: 0.65rem; }
+        .joker-card .effect { color: var(--color-secondary); font-size: 0.6rem; margin-top: 5px; }
+
+
+        /* --- ZONE Messages & Cartes Jouées (Centre Haut du Tapis) --- */
+        #played-hand-area {
+             min-height: 120px;
+             width: 100%;
+             display: flex;
+             flex-direction: column;
+             align-items: center;
+             justify-content: center;
+             padding: 10px;
+             border: 1px dashed rgba(255, 255, 255, 0.3);
+        }
+
+        #hand-result {
+            font-size: 1rem;
+            color: var(--color-secondary);
+        }
+        #game-message {
+            font-size: 1.2rem;
+            min-height: 2em;
+            color: #fff;
+            text-shadow: 0 0 8px #fff;
+            transition: color 0.5s, text-shadow 0.5s;
+        }
+
+        /* --- CARTES JOUEUR (Centre Bas du Tapis) --- */
+        #player-hand-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .card {
+            width: 80px; 
+            height: 110px;
+            border: 2px solid var(--color-chip-base);
+            border-radius: 5px; 
+            background-color: var(--color-dark);
+            color: var(--color-chip-base);
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: transform 0.2s ease-out, opacity 0.3s ease-out, box-shadow 0.2s;
+        }
+        .card:hover {
+            box-shadow: 0 0 10px var(--color-primary);
+        }
+
+        .card.selected {
+             border-color: var(--color-primary);
+             box-shadow: 0 0 15px var(--color-primary);
+             transform: translateY(-20px);
+        }
+        
+        /* Animations de sortie (jouer/défausser) */
+        .card.playing, .card.discarding {
+             transform: translateY(-200px) scale(0.5);
+             opacity: 0;
+        }
+        
+        .red { color: #FF0000; } 
+
+        /* --- CONTROLS (Centre Bas) --- */
+        #control-area {
+            grid-area: 2 / 2 / 3 / 3;
+            background-color: var(--color-dark);
+            border-top: var(--border-width) solid var(--color-primary);
+            box-shadow: 0 -5px 10px var(--border-glow);
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .game-btn {
+            font-family: 'Press Start 2P', cursive;
+            border-radius: 0;
+            border: 2px solid;
+            transition: all 0.1s ease-in-out;
+        }
+        .game-btn:active {
+            transform: translateY(2px);
+            box-shadow: none !important;
+        }
+        
+        /* --- Adaptation Mobile (Empilement Vertical) --- */
+        @media (max-width: 992px) {
+            #main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto auto; 
+                height: auto;
+            }
+            #joker-column {
+                grid-area: 4 / 1 / 5 / 2;
+                border-right: none;
+                border-top: var(--border-width) solid var(--border-glow);
+                padding: 10px;
+            }
+            #stats-column {
+                grid-area: 1 / 1 / 2 / 2;
+                border-left: none;
+                text-align: center;
+            }
+            #felt-area {
+                grid-area: 2 / 1 / 3 / 2;
+                min-height: 400px;
+            }
+            #control-area {
+                grid-area: 3 / 1 / 4 / 2;
+                padding: 15px 10px;
+            }
+        }
+
+    </style>
+</head>
+<body data-bs-theme="dark">
+
+    <a href="jeux.html" class="back-button" title="Retour au menu des jeux">
+        <i class="bi bi-controller"></i>
+    </a>
+
+    <div id="game-balatro-container" class="game-section">
+        <h1 class="game-title">♦ JOKER TERMINAL SCORE ATTACK ♠</h1>
+
+        <div id="main-container">
+
+            <div id="joker-column">
+                <p style="font-size: 0.7rem; margin-bottom: 10px; color: var(--color-secondary);">JOKERS ACTIFS</p>
+                <div id="joker-area-content">
+                    </div>
+            </div>
+
+            <div id="felt-area">
+                
+                <div id="played-hand-area">
+                    <p id="hand-result">Prêt à jouer.</p>
+                    <p id="game-message">Défaussez des cartes ou jouez une main pour commencer.</p>
+                </div>
+                
+                <div id="player-hand-container">
+                    </div>
+            </div>
+            
+            <div id="control-area">
+                <button id="btn-discard" class="btn btn-outline-info game-btn" disabled>DÉFAUSSER (0)</button>
+                <button id="btn-play" class="btn btn-outline-success game-btn" disabled>JOUER MAIN (0)</button>
+                <button id="btn-restart" class="btn btn-light game-btn" style="display:none;">REJOUER</button>
+            </div>
+
+            <div id="stats-column">
+                <div class="stat-box">
+                    <p id="blind-name">SMALL BLIND</p>
+                    <span id="score-target-value">0</span>
+                </div>
+
+                <div class="stat-box">
+                    <p>SCORE ACTUEL</p>
+                    <span id="current-score-value">0</span>
+                </div>
+
+                <div class="stat-box">
+                    <p>DÉFAUSSES</p>
+                    <span id="discards-value">4</span>
+                </div>
+
+                <div class="stat-box">
+                    <p>MAINS RESTANTES</p>
+                    <span id="hands-value">4</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- ÉLÉMENTS DU DOM ---
+            const blindNameEl = document.getElementById('blind-name');
+            const scoreTargetEl = document.getElementById('score-target-value');
+            const currentScoreEl = document.getElementById('current-score-value');
+            const discardsValueEl = document.getElementById('discards-value');
+            const handsValueEl = document.getElementById('hands-value');
+            const jokerAreaEl = document.getElementById('joker-area-content');
+            const playerHandContainerEl = document.getElementById('player-hand-container');
+            const handResultEl = document.getElementById('hand-result');
+            const gameMessageEl = document.getElementById('game-message');
+
+            const btnDiscard = document.getElementById('btn-discard');
+            const btnPlay = document.getElementById('btn-play');
+            const btnRestart = document.getElementById('btn-restart');
+
+            // --- PARAMÈTRES ET ÉTAT DU JEU ---
+            const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const SUITS = ['♠', '♥', '♦', '♣'];
+            const SUIT_COLORS = { '♥': 'red', '♦': 'red', '♠': 'white', '♣': 'white' };
+            const MAX_HAND_SIZE = 8;
+            const DISCARD_MAX = 4;
+            const HANDS_MAX = 4;
+            const ANIMATION_DELAY = 300; 
+
+            const BLINDS = [
+                { name: "SMALL BLIND", target: 500, color: '#33F' }, 
+                { name: "BIG BLIND", target: 1500, color: '#F0F' }, 
+                { name: "BOSS BLIND", target: 5000, color: '#FF0' }
+            ];
+
+            let gameDeck = [];
+            let playerHand = [];
+            let selectedCards = []; // Contient les index (position 0-7) des cartes sélectionnées
+            let currentJokers = [];
+            let currentBlindIndex = 0;
+            let currentScore = 0;
+            let discardsLeft = DISCARD_MAX;
+            let handsLeft = HANDS_MAX;
+            let gameActive = false;
+
+            // --- POKER STATS SIMPLIFIÉES ---
+            const POKER_HANDS = {
+                'Five of a Kind': { chips: 120, mult: 12, minCards: 5 },
+                'Straight Flush': { chips: 100, mult: 8, minCards: 5 },
+                'Four of a Kind': { chips: 80, mult: 7, minCards: 4 },
+                'Full House': { chips: 60, mult: 6, minCards: 5 },
+                'Flush': { chips: 40, mult: 5, minCards: 5 },
+                'Straight': { chips: 30, mult: 4, minCards: 5 },
+                'Three of a Kind': { chips: 20, mult: 3, minCards: 3 },
+                'Two Pair': { chips: 15, mult: 2, minCards: 4 },
+                'Pair': { chips: 10, mult: 1, minCards: 2 },
+                'High Card': { chips: 5, mult: 1, minCards: 1 },
+            };
+
+            const JOKER_POOL = [
+                { name: "THE FOOL", chips: 0, mult: 2, effect: "Multiplie le score de base par 2." },
+                { name: "THE MISCREANT", chips: 15, mult: 0, effect: "Ajoute +15 Chips au score final." },
+                { name: "THE DANCER", chips: 0, mult: 0, effect: "+20 Chips par carte 'Pique' jouée." },
+                { name: "THE BLUE", chips: 0, mult: 0, effect: "+4 à votre MULT par carte 'Carreau' jouée." },
+            ];
+
+            // --- FONCTIONS UTILITAIRES ---
+
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function createDeck() {
+                gameDeck = [];
+                for (const rank of RANKS) {
+                    for (const suit of SUITS) {
+                        gameDeck.push({ rank, suit, value: RANKS.indexOf(rank) + 2 }); 
+                    }
+                }
+                gameDeck = shuffle(gameDeck);
+            }
+
+            function drawCards(count) {
+                const drawn = [];
+                for (let i = 0; i < count; i++) {
+                    if (gameDeck.length < 5) {
+                        createDeck(); 
+                    }
+                    drawn.push(gameDeck.pop());
+                }
+                return drawn;
+            }
+
+            function updateHUD() {
+                const currentBlind = BLINDS[currentBlindIndex] || BLINDS[BLINDS.length - 1];
+                
+                blindNameEl.textContent = currentBlind.name;
+                scoreTargetEl.textContent = currentBlind.target;
+                
+                document.getElementById('joker-column').style.borderColor = currentBlind.color;
+                document.getElementById('stats-column').style.borderColor = currentBlind.color;
+                
+                discardsValueEl.textContent = discardsLeft;
+                handsValueEl.textContent = handsLeft;
+
+                btnDiscard.textContent = `DÉFAUSSER (${selectedCards.length})`;
+                btnDiscard.disabled = selectedCards.length === 0 || discardsLeft <= 0 || !gameActive;
+                
+                btnPlay.textContent = `JOUER MAIN (${selectedCards.length})`;
+                btnPlay.disabled = selectedCards.length === 0 || selectedCards.length > 5 || !gameActive || handsLeft <= 0;
+            }
+            
+            function renderJokers() {
+                jokerAreaEl.innerHTML = '';
+                currentJokers.forEach(joker => {
+                    const jokerDiv = document.createElement('div');
+                    jokerDiv.classList.add('joker-card');
+                    jokerDiv.innerHTML = `
+                        <h4>${joker.name}</h4>
+                        <p class="stats">CHIPS: ${joker.chips}<br>MULT: ${joker.mult}x</p>
+                        <p class="effect">${joker.effect}</p>
+                    `;
+                    jokerAreaEl.appendChild(jokerDiv);
+                });
+            }
+
+            function renderHand() {
+                playerHandContainerEl.innerHTML = '';
+                playerHand.forEach((card, index) => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.classList.add('card');
+                    
+                    // L'index dans le tableau playerHand (0 à 7) est crucial
+                    cardDiv.dataset.index = index; 
+                    
+                    const colorClass = SUIT_COLORS[card.suit] === 'red' ? 'red' : 'white';
+                    
+                    cardDiv.innerHTML = `
+                        <span class="${colorClass}">${card.rank}</span>
+                        <span style="font-size: 0.8rem;" class="${colorClass}">${card.suit}</span>
+                    `;
+                    
+                    if (selectedCards.includes(index)) {
+                        cardDiv.classList.add('selected');
+                    }
+                    
+                    cardDiv.addEventListener('click', () => {
+                        handleCardSelection(index);
+                    });
+                    playerHandContainerEl.appendChild(cardDiv);
+                });
+            }
+            
+            function handleCardSelection(index) {
+                if (!gameActive) return;
+
+                const cardIndexInSelection = selectedCards.indexOf(index);
+                if (cardIndexInSelection > -1) {
+                    selectedCards.splice(cardIndexInSelection, 1);
+                } else {
+                    // Limite la sélection à 5 pour le jeu, ou 8 pour la défausse (toute la main)
+                    const maxSelect = handsLeft > 0 ? 5 : MAX_HAND_SIZE;
+                    if (selectedCards.length < maxSelect) {
+                        selectedCards.push(index);
+                    }
+                }
+                renderHand();
+                updateHUD();
+            }
+
+            // --- LOGIQUE DE POKER & SCORING ---
+
+            function checkPokerHand(hand) {
+                if (hand.length < 1) return POKER_HANDS['High Card'];
+                
+                hand.sort((a, b) => a.value - b.value);
+                const ranks = hand.map(c => c.rank);
+                const suits = hand.map(c => c.suit);
+                const values = hand.map(c => c.value);
+
+                const rankCounts = ranks.reduce((acc, rank) => { acc[rank] = (acc[rank] || 0) + 1; return acc; }, {});
+                const suitCounts = suits.reduce((acc, suit) => { acc[suit] = (acc[suit] || 0) + 1; return acc; }, {});
+                const counts = Object.values(rankCounts);
+                const uniqueRanks = Object.keys(rankCounts).length;
+                
+                const isFlush = Object.values(suitCounts).some(count => count >= 5);
+                const isStraight = (uniqueRanks >= 5 && (values[4] - values[0] === 4)); 
+
+                if (counts.includes(5) && hand.length >= 5) return POKER_HANDS['Five of a Kind'];
+                if (isStraight && isFlush && hand.length >= 5) return POKER_HANDS['Straight Flush'];
+                if (counts.includes(4) && hand.length >= 4) return POKER_HANDS['Four of a Kind'];
+                if (counts.includes(3) && counts.includes(2) && hand.length >= 5) return POKER_HANDS['Full House'];
+                if (isFlush && hand.length >= 5) return POKER_HANDS['Flush'];
+                if (isStraight && hand.length >= 5) return POKER_HANDS['Straight'];
+                if (counts.includes(3) && hand.length >= 3) return POKER_HANDS['Three of a Kind'];
+                if (counts.filter(c => c === 2).length >= 2 && hand.length >= 4) return POKER_HANDS['Two Pair'];
+                if (counts.includes(2) && hand.length >= 2) return POKER_HANDS['Pair'];
+                
+                return POKER_HANDS['High Card'];
+            }
+
+            function calculateScore(playedHand) {
+                const handStats = checkPokerHand(playedHand);
+                let baseChips = handStats.chips;
+                let mult = handStats.mult;
+                let extraChips = 0;
+                
+                currentJokers.forEach(joker => {
+                    mult += joker.mult;
+                    extraChips += joker.chips;
+
+                    if (joker.name === "THE DANCER") {
+                        const spadesPlayed = playedHand.filter(c => c.suit === '♠').length;
+                        extraChips += spadesPlayed * 20;
+                    }
+                    if (joker.name === "THE BLUE") {
+                        const diamondsPlayed = playedHand.filter(c => c.suit === '♦').length;
+                        mult += diamondsPlayed * 4;
+                    }
+                });
+
+                const finalScore = (baseChips + extraChips) * mult;
+                handResultEl.textContent = `Main jouée: ${handStats.name}. Score: (${baseChips} + ${extraChips}) x ${mult} = ${finalScore}`;
+                return finalScore;
+            }
+
+            function checkWinCondition() {
+                const target = BLINDS[currentBlindIndex].target;
+
+                if (currentScore >= target) {
+                    gameMessageEl.classList.add('win');
+                    gameMessageEl.textContent = "BLIND BATTU! PRÉPAREZ-VOUS POUR LE PROCHAIN.";
+                    gameActive = false;
+                    currentBlindIndex++;
+                    
+                    if (currentBlindIndex >= BLINDS.length) {
+                        gameMessageEl.textContent = "VICTOIRE! Le Casino est à vous!";
+                        gameOver();
+                        return;
+                    }
+                    
+                    setTimeout(dealNewRound, 3000);
+                } else if (handsLeft <= 0) {
+                    gameMessageEl.classList.add('loss');
+                    gameMessageEl.textContent = `DÉFAITE. Score (${currentScore}) insuffisant pour battre le Blind (${target}).`;
+                    gameOver();
+                } else {
+                    gameMessageEl.textContent = "Score insuffisant. Défaussez ou jouez une autre main.";
+                }
+            }
+            
+            function gameOver() {
+                gameActive = false;
+                btnDiscard.disabled = true;
+                btnPlay.disabled = true;
+                btnRestart.style.display = 'inline-block';
+            }
+
+            // --- GESTION DES ACTIONS (Animations) ---
+
+            function animateCards(indices, actionClass) {
+                indices.forEach(index => {
+                    const cardEl = playerHandContainerEl.querySelector(`[data-index="${index}"]`);
+                    if (cardEl) {
+                        cardEl.classList.add(actionClass);
+                    }
+                });
+            }
+
+            function handleDiscard() {
+                if (!gameActive || discardsLeft <= 0 || selectedCards.length === 0) return;
+                
+                gameActive = false;
+                const indicesToDiscard = [...selectedCards];
+                
+                animateCards(indicesToDiscard, 'discarding');
+                gameMessageEl.textContent = "DÉFAUSSE...";
+
+                setTimeout(() => {
+                    const cardsToKeep = playerHand.filter((_, index) => !indicesToDiscard.includes(index));
+                    const cardsToDraw = indicesToDiscard.length;
+                    const newCards = drawCards(cardsToDraw);
+                    
+                    playerHand = cardsToKeep.concat(newCards);
+                    playerHand = shuffle(playerHand); 
+
+                    discardsLeft--;
+                    selectedCards = [];
+                    gameActive = true;
+                    renderHand();
+                    updateHUD();
+                    gameMessageEl.textContent = `Défausse réussie. ${cardsToDraw} nouvelles cartes.`;
+                }, ANIMATION_DELAY); 
+            }
+
+            function handlePlayHand() {
+                if (!gameActive || selectedCards.length < 1 || handsLeft <= 0) return;
+                
+                gameActive = false;
+                const indicesToPlay = [...selectedCards];
+
+                animateCards(indicesToPlay, 'playing');
+                gameMessageEl.textContent = "CALCUL DU SCORE...";
+
+                setTimeout(() => {
+                    const playedHand = playerHand.filter((_, index) => indicesToPlay.includes(index));
+                    const remainingHand = playerHand.filter((_, index) => !indicesToPlay.includes(index));
+                    
+                    const scoreGain = calculateScore(playedHand);
+                    currentScore += scoreGain;
+
+                    currentScoreEl.classList.add('gain-pulse');
+                    setTimeout(() => currentScoreEl.classList.remove('gain-pulse'), 500);
+                    currentScoreEl.textContent = currentScore;
+                    
+                    handsLeft--;
+                    playerHand = remainingHand; 
+                    playerHand.push(...drawCards(MAX_HAND_SIZE - playerHand.length));
+                    playerHand = shuffle(playerHand);
+
+                    selectedCards = [];
+                    gameActive = true;
+                    renderHand();
+                    updateHUD();
+                    
+                    setTimeout(checkWinCondition, 1000);
+                }, ANIMATION_DELAY); 
+            }
+            
+            function dealNewRound() {
+                playerHand = [];
+                playerHand.push(...drawCards(MAX_HAND_SIZE));
+                discardsLeft = DISCARD_MAX;
+                handsLeft = HANDS_MAX;
+                selectedCards = [];
+                // Ne réinitialise pas le score si on passe au Blind suivant
+                gameMessageEl.classList.remove('win', 'loss');
+                gameMessageEl.textContent = "Nouveau Blind. Main distribuée. Bonne chance!";
+                
+                gameActive = true;
+                renderHand();
+                updateHUD();
+            }
+
+            function startGame() {
+                createDeck();
+                currentJokers = JOKER_POOL.slice(0, 3); 
+                currentBlindIndex = 0;
+                currentScore = 0; // Réinitialise le score uniquement au début du run
+                btnRestart.style.display = 'none';
+                renderJokers();
+                dealNewRound();
+            }
+
+            // --- INITIALISATION et ÉVÉNEMENTS ---
+
+            btnDiscard.addEventListener('click', handleDiscard);
+            btnPlay.addEventListener('click', handlePlayHand);
+            btnRestart.addEventListener('click', startGame);
+
+            // Pas besoin d'écouteur global, les cartes l'ont déjà.
+
+            startGame(); 
+        });
+    </script>
+
+</body>
+</html>
